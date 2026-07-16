@@ -17167,8 +17167,9 @@ function renderNav(){
   h+='<a class="nav-link" data-nav="glossary" href="#/glossary"><span class="ni">Aa</span>Glossary</a>';
   h+='<a class="nav-link" data-nav="cheats" href="#/cheats"><span class="ni">≡</span>Cheat Sheets</a>';
   h+='<a class="nav-link" data-nav="about" href="#/about"><span class="ni">ⓘ</span>About &amp; Sources</a>';
-  h+='<a class="nav-link" data-nav="admin" id="nav-admin" href="#/admin" style="display:none"><span class="ni">📈</span>Admin · Usage</a>';
   n.innerHTML=h;
+  // The Admin link is injected only for an authenticated owner (see updateAuthUI) — it is
+  // never present in the DOM for normal users, so the feature isn't discoverable at all.
   $$(".nav-mod>button").forEach(b=>b.addEventListener("click",()=>{const p=b.parentElement;p.classList.toggle("open");b.setAttribute("aria-expanded",p.classList.contains("open"));}));
   updateNavCounts();
 }
@@ -17750,7 +17751,10 @@ function updateAuthUI(){
       else { btn.classList.remove("signed"); btn.textContent="Sign in to sync"; }
     }
   }
-  const al=$("#nav-admin"); if(al) al.style.display=isOwner()?"":"none";
+  let al=$("#nav-admin");
+  if(isOwner()){
+    if(!al){ al=document.createElement("a"); al.className="nav-link"; al.id="nav-admin"; al.setAttribute("data-nav","admin"); al.href="#/admin"; al.innerHTML='<span class="ni">📈</span>Admin · Usage'; const nv=$("#nav"); if(nv) nv.appendChild(al); }
+  } else if(al){ al.remove(); }
 }
 function openAuth(){
   const m=$("#authmodal");
@@ -17839,9 +17843,10 @@ function resetProgress(){
 }
 function dsMsg(t,cls){ const m=$("#ds-msg"); if(m){ m.textContent=t; m.style.color=(cls==="err"?"var(--crit)":"var(--ok)"); } }
 async function renderAdmin(){
+  // Owner-only. Non-owners (signed out, or signed in without the owner email) are silently
+  // sent to Today — the admin area reveals nothing about its existence to normal users.
+  if(!isOwner()){ nav("today"); return; }
   setCrumb("Admin · Usage"); const root=$("#admin-root");
-  if(!SB){ root.innerHTML=viewH("Admin","Usage Analytics","")+'<div class="empty">Accounts &amp; analytics aren’t configured on this deployment. Add your Supabase keys in <code>config.js</code> to enable them.</div>'; return; }
-  if(!USER){ root.innerHTML=viewH("Admin","Usage Analytics","")+'<div class="empty">Sign in as the owner to view usage. <a href="#" id="adm-signin">Sign in →</a></div>'; const s=$("#adm-signin"); if(s)s.addEventListener("click",e=>{e.preventDefault();openAuth();}); return; }
   root.innerHTML=viewH("Admin","Usage Analytics","Aggregate learner activity across everyone who has signed in.")+'<div class="empty">Loading…</div>';
   try{
     const {data,error}=await SB.rpc("owner_stats"); if(error)throw error; const d=data||{};
