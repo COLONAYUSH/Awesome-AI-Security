@@ -77,11 +77,27 @@ Supabase → **Authentication → URL Configuration**:
 - **Site URL**: your deployed URL (e.g. `https://your-app.vercel.app`).
 - **Redirect URLs**: add the same URL (and `http://localhost:...` if testing locally).
 
-*Magic-link* email works with zero extra setup. To use Google instead, set
-`AUTH_METHOD: "google"` and enable Google under **Authentication → Providers**.
+*Magic-link* email works with zero extra setup. The sign-in dialog shows both a
+**"Continue with Google"** button and the email link; Google needs the one-time setup below.
 
 Deploy (Option A steps). Done — a **"Sign in to sync"** button appears top-right; signing in
-with your owner email reveals an **Admin · Usage** link in the sidebar.
+with your owner email reveals an **Admin · Usage** link (with charts) in the sidebar.
+
+### 6. (Optional) Enable Google sign-in
+The "Continue with Google" button is shown by default (`AUTH_GOOGLE: true` in `config.js`; set
+`false` to hide it). It works once you register a Google OAuth app and enable the provider:
+
+1. **Google Cloud Console** → create/select a project → **APIs & Services → OAuth consent screen**
+   (External; add your email as a test user or publish).
+2. **APIs & Services → Credentials → Create credentials → OAuth client ID → Web application.**
+   - **Authorized redirect URI:** `https://YOUR-PROJECT.supabase.co/auth/v1/callback`
+     (yours: `https://vflrlyunakkzwsbvvrxq.supabase.co/auth/v1/callback`)
+   - Create, then copy the **Client ID** and **Client secret**.
+3. **Supabase → Authentication → Providers → Google** → enable → paste the Client ID + secret → Save.
+4. Make sure your site URL is in **Authentication → URL Configuration → Redirect URLs** (already done in step 5).
+
+That's it — the Google button now completes sign-in. Until it's enabled, clicking it shows a friendly
+"not enabled yet — use the email link" message.
 
 ---
 
@@ -94,7 +110,14 @@ with your owner email reveals an **Admin · Usage** link in the sidebar.
 - **Row-level security** means a signed-in learner can only ever read/write *their own* row.
 - The **owner dashboard** reads aggregate stats through a `SECURITY DEFINER` function that
   refuses anyone whose email isn't in the `owners` table — learners cannot see each other.
+  It shows summary tiles plus charts (active learners, curriculum-progress distribution,
+  top learners, active-path breakdown).
 - No secrets live in the browser except the public anon key.
+
+## Backup / restore
+Anyone (signed in or not) can **Export progress** to a JSON file and **Import** it on another
+device from the **About** page — handy for local-only use or moving between browsers. Import
+*merges* (it never wipes existing progress); there's also a **Reset all progress** button.
 
 ## Notes
 - Mermaid and Supabase load from jsDelivr CDN; the CSP in `vercel.json`/`netlify.toml`

@@ -527,6 +527,23 @@ pre.mermaid{display:flex;justify-content:center;background:var(--surface);border
 .adm-tbl th{font:600 10.5px/1.4 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);text-align:left;padding:9px 13px;background:var(--raised);border-bottom:1px solid var(--border);white-space:nowrap}
 .adm-tbl td{padding:9px 13px;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums}
 .adm-tbl tr:last-child td{border-bottom:none}
+.auth-or{display:flex;align-items:center;gap:10px;margin:14px 0;color:var(--faint);font:600 10px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase}
+.auth-or::before,.auth-or::after{content:"";flex:1;height:1px;background:var(--border)}
+.auth-google-btn{width:100%;justify-content:center}
+.auth-google-btn .g-icon{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:var(--text);color:var(--surface);font:800 11px/1 var(--sans);margin-right:2px}
+/* admin charts */
+.chartgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+@media(max-width:760px){.chartgrid{grid-template-columns:1fr}}
+.chartcard{border:1px solid var(--border);border-radius:13px;background:var(--surface);padding:16px 18px}
+.chartcard h3{font:700 10.5px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--faint);margin:0 0 14px}
+.hbar-row{display:grid;grid-template-columns:104px 1fr 40px;align-items:center;gap:10px;margin-bottom:9px}
+.hbar-row:last-child{margin-bottom:0}
+.hbar-label{font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hbar-track{background:var(--sunken);border-radius:5px;height:15px;overflow:hidden}
+.hbar-fill{height:100%;background:var(--accent);border-radius:5px;min-width:2px;transition:width .5s ease}
+.hbar-val{text-align:right;font:600 12px/1 var(--mono);font-variant-numeric:tabular-nums;color:var(--text)}
+.chart-empty{color:var(--faint);font-size:13px}
+#ds-file{display:none}
 
 footer.credit{max-width:860px;margin:60px auto 0;padding-top:18px;border-top:1px solid var(--border);font-size:12px;color:var(--faint);line-height:1.6}
 footer.credit a{color:var(--muted)}
@@ -16993,7 +17010,18 @@ flowchart LR
           <div class="cheat">
             <p>This learning platform is a study companion built on the <a href="https://owaspai.org" target="_blank" rel="noopener">OWASP AI Exchange</a> — the flagship OWASP project ("the world's AI security guide", 327 pages, generated 7/7/2026) that feeds directly into the EU AI Act and ISO/IEC 27090/27091 through official standard partnerships. The Exchange is published under CC0 by the AI security community, founded by Rob van der Veer in 2022.</p>
             <p>Every module tracks the source document section by section, enriched with cross-references to the OWASP Top 10 for LLM Applications, MITRE ATLAS, and the NIST AI Risk Management Framework. Permalinks (owaspai.org/go/…) throughout let you jump to the living, continuously updated source.</p>
-            <p>Your progress, quiz scores, flashcard scheduling, and interview drill history are stored locally in your browser only.</p>
+            <p>Your progress, quiz scores, flashcard schedule, streak, and interview drill history are stored in your browser — and when you sign in, synced to your account so you can continue on any device.</p>
+          </div>
+          <div class="cheat" id="data-settings">
+            <h2>Your data &amp; settings</h2>
+            <p>Export a backup of your progress, restore it on another device, or reset everything on this browser. Signed-in progress also syncs automatically.</p>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px">
+              <button type="button" class="btn primary" id="ds-export">⭳ Export progress</button>
+              <button type="button" class="btn ghost" id="ds-import">⭱ Import progress</button>
+              <button type="button" class="btn ghost" id="ds-reset" style="color:var(--crit)">Reset all progress</button>
+              <input type="file" id="ds-file" accept="application/json,.json">
+            </div>
+            <div id="ds-msg" style="margin-top:10px;font-size:13px"></div>
           </div>
         </div>
       </section>
@@ -17658,6 +17686,10 @@ $("#authbtn").addEventListener("click",openAuth);
 $("#authmodal").addEventListener("click",e=>{ if(e.target.id==="authmodal")closeAuth(); });
 $("#menubtn").addEventListener("click",()=>document.body.classList.toggle("navopen"));
 $("#scrim").addEventListener("click",()=>document.body.classList.remove("navopen"));
+$("#ds-export").addEventListener("click",exportProgress);
+$("#ds-import").addEventListener("click",()=>$("#ds-file").click());
+$("#ds-file").addEventListener("change",e=>{ if(e.target.files&&e.target.files[0])importProgress(e.target.files[0]); e.target.value=""; });
+$("#ds-reset").addEventListener("click",resetProgress);
 
 /* ---------- auth + cross-device sync (Supabase, optional) ---------- */
 const CFG = window.AISEC_CONFIG || {};
@@ -17725,10 +17757,10 @@ function openAuth(){
   if(USER){
     $("#auth-body").innerHTML='<button type="button" class="auth-x" aria-label="Close">✕</button><h3>Signed in</h3><p>'+esc(USER.email||"")+'<br>Your progress syncs automatically across every device you sign in on.</p><div class="auth-actions"><button type="button" class="btn ghost" id="auth-signout">Sign out</button></div>';
   } else {
-    const g=CFG.AUTH_METHOD==="google";
-    $("#auth-body").innerHTML='<button type="button" class="auth-x" aria-label="Close">✕</button><h3>Sign in to sync</h3><p>Save your progress and pick up on any device. '+(g?'':'We’ll email you a one-time sign-in link — no password to remember.')+'</p>'+
-      (g?'<div class="auth-actions"><button type="button" class="btn primary" id="auth-google">Continue with Google</button></div>'
-        :'<input id="auth-email" type="email" placeholder="you@example.com" autocomplete="email"><div class="auth-actions"><button type="button" class="btn primary" id="auth-send">Email me a sign-in link</button></div>')+
+    const g=CFG.AUTH_GOOGLE!==false;
+    $("#auth-body").innerHTML='<button type="button" class="auth-x" aria-label="Close">✕</button><h3>Sign in to sync</h3><p>Save your progress and pick up on any device.</p>'+
+      (g?'<div class="auth-actions"><button type="button" class="btn ghost auth-google-btn" id="auth-google"><span class="g-icon">G</span>Continue with Google</button></div><div class="auth-or"><span>or</span></div>':'')+
+      '<input id="auth-email" type="email" placeholder="you@example.com" autocomplete="email"><div class="auth-actions"><button type="button" class="btn primary" id="auth-send">Email me a sign-in link</button></div>'+
       '<div class="auth-msg" id="auth-msg"></div>';
   }
   m.classList.add("on");
@@ -17747,7 +17779,7 @@ async function doMagic(){
     authMsg("Check your inbox — click the link to finish signing in.","ok");
   }catch(e){ authMsg(e.message||"Could not send the link.","err"); }
 }
-async function doGoogle(){ try{ await SB.auth.signInWithOAuth({provider:"google",options:{redirectTo:location.href.split("#")[0]}}); }catch(e){ authMsg(e.message||"Sign-in failed.","err"); } }
+async function doGoogle(){ try{ const {error}=await SB.auth.signInWithOAuth({provider:"google",options:{redirectTo:location.href.split("#")[0]}}); if(error)throw error; }catch(e){ const m=String(e&&e.message||e); authMsg(/not enabled|unsupported provider/i.test(m)?"Google sign-in isn’t enabled on the server yet — use the email link below for now.":(m||"Sign-in failed."),"err"); } }
 async function doSignOut(){ try{ await SB.auth.signOut(); }catch(e){} USER=null; closeAuth(); updateAuthUI(); route(); }
 function initSupabase(){
   if(!CFG.SUPABASE_URL||!CFG.SUPABASE_ANON_KEY){ updateAuthUI(); return; }
@@ -17761,6 +17793,51 @@ function initSupabase(){
 function viewH(eye,title,sub){ return '<div class="view-h"><div class="vh-eyebrow">'+esc(eye)+'</div><h1>'+esc(title)+'</h1>'+(sub?'<p>'+esc(sub)+'</p>':'')+'</div>'; }
 function admStat(v,l){ return '<div class="plan-stat"><div class="ps-v">'+esc(String(v))+'</div><div class="ps-l">'+esc(l)+'</div></div>'; }
 function fmtDate(s){ if(!s)return "—"; try{ return new Date(s).toLocaleString(undefined,{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"}); }catch(e){ return String(s); } }
+function hbar(label,val,max){ const pct=max>0?Math.round(100*(val||0)/max):0; return '<div class="hbar-row"><span class="hbar-label" title="'+esc(label)+'">'+esc(label)+'</span><div class="hbar-track"><div class="hbar-fill" style="width:'+pct+'%" title="'+esc(label)+': '+(val||0)+'"></div></div><span class="hbar-val">'+esc(String(val||0))+'</span></div>'; }
+function buildAdminCharts(d){
+  const users=d.users||[];
+  const act=[["Today",d.active_1d||0],["7 days",d.active_7d||0],["30 days",d.active_30d||0],["All-time",d.total_users||0]];
+  const actMax=Math.max(1,...act.map(a=>a[1]));
+  const actC='<div class="chartcard"><h3>Active learners</h3>'+act.map(x=>hbar(x[0],x[1],actMax)).join("")+'</div>';
+  const buckets=[["Not started",u=>u.pct<=0],["1–25%",u=>u.pct>0&&u.pct<=25],["26–50%",u=>u.pct>25&&u.pct<=50],["51–75%",u=>u.pct>50&&u.pct<=75],["76–99%",u=>u.pct>75&&u.pct<100],["Complete",u=>u.pct>=100]];
+  const dist=buckets.map(b=>[b[0],users.filter(b[1]).length]); const distMax=Math.max(1,...dist.map(x=>x[1]));
+  const distC='<div class="chartcard"><h3>Curriculum progress</h3>'+(users.length?dist.map(x=>hbar(x[0],x[1],distMax)).join(""):'<div class="chart-empty">No learners yet.</div>')+'</div>';
+  const top=users.slice().sort((x,y)=>(y.lessons||0)-(x.lessons||0)).slice(0,8); const topMax=Math.max(1,...top.map(u=>u.lessons||0));
+  const topC='<div class="chartcard"><h3>Top learners · lessons read</h3>'+(top.length?top.map(u=>hbar((u.email||"—").split("@")[0],u.lessons||0,topMax)).join(""):'<div class="chart-empty">No learners yet.</div>')+'</div>';
+  const paths={}; users.forEach(u=>{const p=u.active_path||"—"; paths[p]=(paths[p]||0)+1;});
+  const pk=Object.keys(paths).sort((x,y)=>paths[y]-paths[x]); const pMax=Math.max(1,...pk.map(k=>paths[k]));
+  const pathC='<div class="chartcard"><h3>Active learning path</h3>'+(pk.length?pk.map(k=>hbar(k,paths[k],pMax)).join(""):'<div class="chart-empty">No learners yet.</div>')+'</div>';
+  return '<div class="chartgrid">'+actC+distC+'</div><div class="chartgrid">'+topC+pathC+'</div>';
+}
+function exportProgress(){
+  const data={_app:"aisec-academy",_v:1,exportedAt:new Date().toISOString(),email:(USER&&USER.email)||null,state:serializeState(),theme:S.theme};
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+  const url=URL.createObjectURL(blob); const a=document.createElement("a");
+  a.href=url; a.download="aisec-progress-"+todayStr()+".json"; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  dsMsg("Progress exported.","ok");
+}
+function importProgress(file){
+  const r=new FileReader();
+  r.onload=()=>{ try{
+    const j=JSON.parse(r.result); const incoming=j.state||j;
+    if(typeof incoming!=="object"||!incoming) throw new Error("unrecognized file");
+    applyState(mergeState(serializeState(),incoming));
+    if(j.theme){ S.theme=j.theme; save.theme(); applyTheme(); }
+    save.progress();save.quizBest();save.srs();save.ivRate();save.seen();save.streak();save.activePath();save.mockDone();save.lastLesson();
+    if(syncEnabled())pushNow();
+    updateNavCounts();
+    dsMsg("Progress imported and merged into this device.","ok");
+  }catch(e){ dsMsg("Couldn’t read that file: "+(e.message||e),"err"); } };
+  r.readAsText(file);
+}
+function resetProgress(){
+  if(!confirm("Reset ALL progress on this browser? This clears completed lessons, quiz scores, flashcard schedule, streak and interview ratings. This cannot be undone.")) return;
+  S.progress={}; S.quizBest={}; S.srs={}; S.ivRate={}; S.seen={}; S.streak={days:0,last:null}; S.mockDone=0; S.lastLesson=null;
+  ["progress","quizBest","srs","ivRate","seen","streak","mockDone","lastLesson"].forEach(k=>LS.set(k,S[k]));
+  if(syncEnabled())pushNow();
+  updateNavCounts(); dsMsg("All progress reset on this browser.","ok");
+}
+function dsMsg(t,cls){ const m=$("#ds-msg"); if(m){ m.textContent=t; m.style.color=(cls==="err"?"var(--crit)":"var(--ok)"); } }
 async function renderAdmin(){
   setCrumb("Admin · Usage"); const root=$("#admin-root");
   if(!SB){ root.innerHTML=viewH("Admin","Usage Analytics","")+'<div class="empty">Accounts &amp; analytics aren’t configured on this deployment. Add your Supabase keys in <code>config.js</code> to enable them.</div>'; return; }
@@ -17770,6 +17847,7 @@ async function renderAdmin(){
     const {data,error}=await SB.rpc("owner_stats"); if(error)throw error; const d=data||{};
     let h=viewH("Admin","Usage Analytics","Aggregate learner activity across everyone who has signed in to this deployment.");
     h+='<div class="adm-grid">'+admStat(d.total_users||0,"total learners")+admStat(d.active_7d||0,"active · 7 days")+admStat(d.active_1d||0,"active · today")+admStat((d.avg_pct||0)+"%","avg curriculum")+admStat(d.avg_quiz!=null&&d.avg_quiz!==""?d.avg_quiz+"%":"—","avg quiz")+admStat(d.lessons_completed_total||0,"lessons completed")+'</div>';
+    h+=buildAdminCharts(d);
     const users=d.users||[];
     h+='<div class="adm-tbl-wrap"><table class="adm-tbl"><thead><tr><th>Learner</th><th>Curriculum</th><th>Lessons</th><th>Quiz avg</th><th>Streak</th><th>Cards</th><th>Interview</th><th>Active path</th><th>Last active</th></tr></thead><tbody>';
     if(!users.length) h+='<tr><td colspan="9" style="color:var(--faint)">No learners have signed in yet.</td></tr>';

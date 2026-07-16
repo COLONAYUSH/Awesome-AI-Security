@@ -17,7 +17,10 @@ window.AISEC_CONFIG = {
   // public.owners table (see supabase/schema.sql).
   OWNER_EMAIL: "",
 
-  // Auth method: "magiclink" (email link, zero setup) or "google"
-  // (requires enabling Google in Supabase → Authentication → Providers).
-  AUTH_METHOD: "magiclink"
+  // The email magic-link sign-in is always available (zero setup).
+  AUTH_METHOD: "magiclink",
+
+  // Also show a "Continue with Google" button. Requires enabling Google under
+  // Supabase → Authentication → Providers (see README). Set false to hide it.
+  AUTH_GOOGLE: true
 };

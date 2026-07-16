@@ -12,5 +12,8 @@ window.AISEC_CONFIG = {
   // Must match the email you sign in with AND the row you inserted into public.owners.
   OWNER_EMAIL: "ayushkaps9462@gmail.com",
 
-  AUTH_METHOD: "magiclink"
+  AUTH_METHOD: "magiclink",
+
+  // Show a "Continue with Google" button too (enable Google in Supabase Auth → Providers).
+  AUTH_GOOGLE: true
 };
