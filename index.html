@@ -534,6 +534,12 @@ pre.mermaid{display:flex;justify-content:center;background:var(--surface);border
 .auth-alt{margin-top:13px;text-align:center}
 .auth-linkbtn{font-size:12.5px;color:var(--accent);text-decoration:underline;background:none;border:none;cursor:pointer;padding:0}
 .auth-linkbtn:hover{color:var(--accent-strong)}
+.auth-tabs{display:flex;gap:4px;background:var(--raised);border-radius:11px;padding:4px;margin-bottom:16px}
+.auth-tab{flex:1;padding:9px;border-radius:8px;font:600 13.5px/1 var(--sans);color:var(--muted);background:none;border:none;cursor:pointer}
+.auth-tab.on{background:var(--surface);color:var(--text);box-shadow:var(--shadow)}
+.auth-box select{width:100%;padding:11px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);font:14.5px var(--sans);margin-bottom:12px}
+.auth-box label.fld{display:block;font:600 10px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin:2px 0 6px}
+.auth-row{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:12px}
 /* admin charts */
 .chartgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
 @media(max-width:760px){.chartgrid{grid-template-columns:1fr}}
@@ -17592,7 +17598,7 @@ function renderToday(){
   const nextLesson=LESSONS.find(l=>!S.progress[l.id]);
   const weak=weakInterviewCat();
   const sk=S.streak.days||0; const activeToday=S.streak.last===todayStr();
-  let h='<div class="today-hero"><div><div class="th-eyebrow">Your study plan</div><h1>'+greet+'.</h1><p>'+esc(dateStr)+' · continue the '+esc(p.title)+' path</p></div>';
+  let h='<div class="today-hero"><div><div class="th-eyebrow">Your study plan</div><h1>'+greet+(USER?', '+esc(displayName().split(" ")[0]):"")+'.</h1><p>'+esc(dateStr)+' · continue the '+esc(p.title)+' path</p></div>';
   h+='<div class="streak"><span class="sk-flame">'+(sk>0?'🔥':'✨')+'</span><div><div class="sk-n">'+sk+'</div><div class="sk-l">day streak'+(activeToday?'':' · study today!')+'</div></div></div></div>';
   // hero step
   h+='<div class="plan-grid">';
@@ -17717,8 +17723,10 @@ function serializeState(){ const o={}; SYNC_KEYS.forEach(k=>o[k]=S[k]); return o
 function summaryState(){
   const lessonsDone=LESSONS.filter(l=>S.progress[l.id]).length;
   const qb=Object.values(S.quizBest); const quizAvg=qb.length?Math.round(qb.reduce((a,b)=>a+b,0)/qb.length):"";
+  const md=(USER&&USER.user_metadata)||{};
   return { pct:LESSONS.length?Math.round(100*lessonsDone/LESSONS.length):0, lessonsDone, totalLessons:LESSONS.length,
-           quizAvg, streak:S.streak.days||0, cardsSeen:Object.keys(S.srs).length, ivDrilled:Object.keys(S.ivRate).length, activePath:S.activePath };
+           quizAvg, streak:S.streak.days||0, cardsSeen:Object.keys(S.srs).length, ivDrilled:Object.keys(S.ivRate).length, activePath:S.activePath,
+           name: md.full_name||md.name||"", goal: md.goal||"", experience: md.experience||"" };
 }
 function applyState(remote){ if(!remote)return; SYNC_KEYS.forEach(k=>{ if(remote[k]!==undefined){ S[k]=remote[k]; LS.set(k,S[k]); } }); }
 function mergeState(local,remote){
@@ -17762,7 +17770,7 @@ function updateAuthUI(){
   const btn=$("#authbtn"); if(btn){
     if(!SB){ btn.hidden=true; }
     else { btn.hidden=false;
-      if(USER){ btn.classList.add("signed"); btn.innerHTML=esc((USER.email||"account").split("@")[0])+' <span class="sync-dot ok" id="sync-dot"></span>'; }
+      if(USER){ btn.classList.add("signed"); btn.innerHTML=esc(displayName())+' <span class="sync-dot ok" id="sync-dot"></span>'; }
       else { btn.classList.remove("signed"); btn.textContent="Sign in to sync"; }
     }
   }
@@ -17771,29 +17779,57 @@ function updateAuthUI(){
     if(!og){ og=document.createElement("div"); og.id="nav-owner"; og.innerHTML='<div class="nav-h">Owner</div><a class="nav-link" id="nav-admin" data-nav="admin" href="#/admin"><span class="ni">📈</span>Admin · Usage</a>'; const nv=$("#nav"); if(nv){ nv.appendChild(og); refreshNavActive(); } }
   } else if(og){ og.remove(); }
 }
-function openAuth(){
+let authMode="login";
+function displayName(){ const md=(USER&&USER.user_metadata)||{}; return md.full_name||md.name||(USER&&USER.email?USER.email.split("@")[0]:"account"); }
+function openAuth(mode){
   const m=$("#authmodal");
-  if(USER){
-    $("#auth-body").innerHTML='<button type="button" class="auth-x" aria-label="Close">✕</button><h3>Signed in</h3><p>'+esc(USER.email||"")+'<br>Your progress syncs automatically across every device you sign in on.</p><div class="auth-actions"><button type="button" class="btn ghost" id="auth-signout">Sign out</button></div>';
+  if(USER && mode!=="reset"){
+    $("#auth-body").innerHTML='<button type="button" class="auth-x" aria-label="Close">✕</button><h3>Signed in</h3><p><b>'+esc(displayName())+'</b><br>'+esc(USER.email||"")+'<br>Your progress syncs automatically across every device you sign in on.</p><div class="auth-actions"><button type="button" class="btn ghost" id="auth-signout">Sign out</button></div>';
   } else {
-    const g=CFG.AUTH_GOOGLE!==false;
-    $("#auth-body").innerHTML='<button type="button" class="auth-x" aria-label="Close">✕</button><h3>Sign in to sync</h3><p>Save your progress and pick up on any device.</p>'+
-      (g?'<div class="auth-actions"><button type="button" class="btn ghost auth-google-btn" id="auth-google"><span class="g-icon">G</span>Continue with Google</button></div><div class="auth-or"><span>or</span></div>':'')+
-      '<input id="auth-email" type="email" placeholder="you@example.com" autocomplete="email">'+
-      '<input id="auth-password" type="password" placeholder="Password (min 6 characters)" autocomplete="current-password">'+
-      '<div class="auth-actions"><button type="button" class="btn primary" id="auth-signin">Sign in</button><button type="button" class="btn ghost" id="auth-signup">Create account</button></div>'+
-      '<div class="auth-alt"><button type="button" class="auth-linkbtn" id="auth-magic">Email me a one-time link instead</button></div>'+
-      '<div class="auth-msg" id="auth-msg"></div>';
+    authMode = mode || (authMode==="reset"?"login":authMode) || "login";
+    $("#auth-body").innerHTML=authFormHTML(authMode);
   }
   m.classList.add("on");
+  wireAuth();
+}
+function authFormHTML(mode){
+  const g=CFG.AUTH_GOOGLE!==false;
+  const x='<button type="button" class="auth-x" aria-label="Close">✕</button>';
+  const google=g?'<div class="auth-actions"><button type="button" class="btn ghost auth-google-btn" id="auth-google"><span class="g-icon">G</span>Continue with Google</button></div><div class="auth-or"><span>or</span></div>':'';
+  const msg='<div class="auth-msg" id="auth-msg"></div>';
+  if(mode==="reset"){
+    return x+'<h3>Choose a new password</h3><p>Set a new password for your account.</p>'+
+      '<input id="auth-password" type="password" placeholder="New password (min 6 characters)" autocomplete="new-password">'+
+      '<input id="auth-password2" type="password" placeholder="Confirm new password" autocomplete="new-password">'+
+      '<div class="auth-actions"><button type="button" class="btn primary" id="auth-savepw">Save new password</button></div>'+msg;
+  }
+  const tabs='<div class="auth-tabs"><button type="button" class="auth-tab'+(mode==="login"?" on":"")+'" data-mode="login">Log in</button><button type="button" class="auth-tab'+(mode==="signup"?" on":"")+'" data-mode="signup">Sign up</button></div>';
+  if(mode==="signup"){
+    return x+'<h3>Create your account</h3><p>Set up your profile and start learning in seconds.</p>'+tabs+google+
+      '<input id="auth-name" type="text" placeholder="Full name" autocomplete="name">'+
+      '<input id="auth-email" type="email" placeholder="you@example.com" autocomplete="email">'+
+      '<input id="auth-password" type="password" placeholder="Password (min 6 characters)" autocomplete="new-password">'+
+      '<input id="auth-password2" type="password" placeholder="Confirm password" autocomplete="new-password">'+
+      '<label class="fld" for="auth-goal">What brings you here?</label>'+
+      '<select id="auth-goal"><option value="interview-sprint">Prepare for an AI-security interview</option><option value="practitioner">Level up my practical skills</option><option value="foundations">Build solid foundations first</option><option value="full">Learn everything, cover to cover</option></select>'+
+      '<label class="fld" for="auth-exp">Your experience with AI security</label>'+
+      '<select id="auth-exp"><option value="new">New to it</option><option value="some">Some experience</option><option value="senior">Experienced / senior</option></select>'+
+      '<div class="auth-actions"><button type="button" class="btn primary" id="auth-signup">Create account</button></div>'+msg;
+  }
+  return x+'<h3>Welcome back</h3><p>Log in to sync your progress across devices.</p>'+tabs+google+
+    '<input id="auth-email" type="email" placeholder="you@example.com" autocomplete="email">'+
+    '<input id="auth-password" type="password" placeholder="Password" autocomplete="current-password">'+
+    '<div class="auth-actions"><button type="button" class="btn primary" id="auth-signin">Log in</button></div>'+
+    '<div class="auth-row"><button type="button" class="auth-linkbtn" id="auth-forgot">Forgot password?</button><button type="button" class="auth-linkbtn" id="auth-magic">Use a one-time email link</button></div>'+msg;
+}
+function wireAuth(){
+  const m=$("#authmodal");
   m.querySelector(".auth-x").addEventListener("click",closeAuth);
-  const so=$("#auth-signout"); if(so)so.addEventListener("click",doSignOut);
-  const gg=$("#auth-google"); if(gg)gg.addEventListener("click",doGoogle);
-  const si=$("#auth-signin"); if(si)si.addEventListener("click",doPassword);
-  const su=$("#auth-signup"); if(su)su.addEventListener("click",doSignup);
-  const mg=$("#auth-magic"); if(mg)mg.addEventListener("click",doMagic);
-  const ei=$("#auth-email"); if(ei) ei.focus();
-  const pw=$("#auth-password"); if(pw) pw.addEventListener("keydown",e=>{ if(e.key==="Enter")doPassword(); });
+  $$("#auth-body .auth-tab").forEach(b=>b.addEventListener("click",()=>openAuth(b.dataset.mode)));
+  const map={"auth-signout":doSignOut,"auth-google":doGoogle,"auth-signin":doPassword,"auth-signup":doSignup,"auth-magic":doMagic,"auth-forgot":doForgot,"auth-savepw":doReset};
+  Object.keys(map).forEach(id=>{ const el=document.getElementById(id); if(el) el.addEventListener("click",map[id]); });
+  const first=$("#auth-name")||$("#auth-email")||$("#auth-password"); if(first) first.focus();
+  const pw=$("#auth-password"); if(pw) pw.addEventListener("keydown",e=>{ if(e.key==="Enter"){ if(authMode==="reset")doReset(); else if(authMode==="signup")doSignup(); else doPassword(); } });
 }
 function closeAuth(){ $("#authmodal").classList.remove("on"); }
 function authMsg(t,cls){ const m=$("#auth-msg"); if(m){ m.textContent=t; m.className="auth-msg show "+cls; } }
@@ -17808,17 +17844,38 @@ async function doGoogle(){ try{ const {error}=await SB.auth.signInWithOAuth({pro
 async function doPassword(){
   const email=($("#auth-email").value||"").trim(), pw=$("#auth-password").value||"";
   if(!email||!pw){ authMsg("Enter your email and password.","err"); return; }
-  authMsg("Signing in…","ok");
+  authMsg("Logging in…","ok");
   try{ const {error}=await SB.auth.signInWithPassword({email,password:pw}); if(error)throw error; closeAuth(); }
-  catch(e){ authMsg(/invalid login/i.test(String(e.message))?"Wrong email or password. New here? Use “Create account”.":(e.message||"Sign-in failed."),"err"); }
+  catch(e){ authMsg(/invalid login/i.test(String(e.message))?"Wrong email or password. New here? Switch to Sign up, or use Forgot password.":(e.message||"Login failed."),"err"); }
+}
+async function doForgot(){
+  const email=($("#auth-email").value||"").trim(); if(!email){ authMsg("Type your email above first, then tap Forgot password.","err"); return; }
+  authMsg("Sending reset link…","ok");
+  try{ const {error}=await SB.auth.resetPasswordForEmail(email,{redirectTo:location.href.split("#")[0]}); if(error)throw error;
+    authMsg("Check your inbox for a reset link — opening it lets you set a new password.","ok");
+  }catch(e){ authMsg(e.message||"Could not send the reset link.","err"); }
 }
 async function doSignup(){
-  const email=($("#auth-email").value||"").trim(), pw=$("#auth-password").value||"";
-  if(!email||pw.length<6){ authMsg("Enter an email and a password of at least 6 characters.","err"); return; }
+  const name=($("#auth-name").value||"").trim(), email=($("#auth-email").value||"").trim();
+  const pw=$("#auth-password").value||"", pw2=($("#auth-password2")&&$("#auth-password2").value)||"";
+  const goal=($("#auth-goal")&&$("#auth-goal").value)||"interview-sprint", exp=($("#auth-exp")&&$("#auth-exp").value)||"new";
+  if(!name){ authMsg("Please enter your name.","err"); return; }
+  if(!email){ authMsg("Please enter your email.","err"); return; }
+  if(pw.length<6){ authMsg("Password must be at least 6 characters.","err"); return; }
+  if(pw!==pw2){ authMsg("The two passwords don’t match.","err"); return; }
   authMsg("Creating your account…","ok");
-  try{ const {data,error}=await SB.auth.signUp({email,password:pw}); if(error)throw error;
-    if(data.session){ closeAuth(); } else { authMsg("Account created — check your email to confirm, then sign in.","ok"); }
+  try{ const {data,error}=await SB.auth.signUp({email,password:pw,options:{data:{full_name:name,goal:goal,experience:exp}}}); if(error)throw error;
+    S.activePath=goal; save.activePath();
+    if(data.session){ closeAuth(); route(); } else { authMsg("Account created! Check your email to confirm it, then log in.","ok"); authMode="login"; }
   }catch(e){ authMsg(e.message||"Could not create account.","err"); }
+}
+async function doReset(){
+  const pw=$("#auth-password").value||"", pw2=($("#auth-password2")&&$("#auth-password2").value)||"";
+  if(pw.length<6){ authMsg("Password must be at least 6 characters.","err"); return; }
+  if(pw!==pw2){ authMsg("The two passwords don’t match.","err"); return; }
+  authMsg("Saving…","ok");
+  try{ const {error}=await SB.auth.updateUser({password:pw}); if(error)throw error; authMsg("Password updated — you’re signed in.","ok"); setTimeout(closeAuth,1000); }
+  catch(e){ authMsg(e.message||"Could not update password.","err"); }
 }
 async function doSignOut(){ try{ await SB.auth.signOut(); }catch(e){} USER=null; closeAuth(); updateAuthUI(); route(); }
 function initSupabase(){
@@ -17826,7 +17883,7 @@ function initSupabase(){
   if(!window.supabase||!window.supabase.createClient){ console.warn("supabase-js not loaded; sync disabled"); updateAuthUI(); return; }
   SB=window.supabase.createClient(CFG.SUPABASE_URL,CFG.SUPABASE_ANON_KEY);
   SB.auth.getSession().then(({data})=>{ USER=data.session?data.session.user:null; updateAuthUI(); if(USER)pullAndMerge(); });
-  SB.auth.onAuthStateChange((_e,session)=>{ const was=USER&&USER.id; USER=session?session.user:null; updateAuthUI(); if(USER&&USER.id!==was)pullAndMerge(); });
+  SB.auth.onAuthStateChange((ev,session)=>{ const was=USER&&USER.id; USER=session?session.user:null; updateAuthUI(); if(ev==="PASSWORD_RECOVERY"){ openAuth("reset"); } else if(USER&&USER.id!==was)pullAndMerge(); });
 }
 
 /* ---------- admin / owner analytics ---------- */
