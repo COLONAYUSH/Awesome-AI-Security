@@ -531,6 +531,9 @@ pre.mermaid{display:flex;justify-content:center;background:var(--surface);border
 .auth-or::before,.auth-or::after{content:"";flex:1;height:1px;background:var(--border)}
 .auth-google-btn{width:100%;justify-content:center}
 .auth-google-btn .g-icon{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:var(--text);color:var(--surface);font:800 11px/1 var(--sans);margin-right:2px}
+.auth-alt{margin-top:13px;text-align:center}
+.auth-linkbtn{font-size:12.5px;color:var(--accent);text-decoration:underline;background:none;border:none;cursor:pointer;padding:0}
+.auth-linkbtn:hover{color:var(--accent-strong)}
 /* admin charts */
 .chartgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
 @media(max-width:760px){.chartgrid{grid-template-columns:1fr}}
@@ -17776,15 +17779,21 @@ function openAuth(){
     const g=CFG.AUTH_GOOGLE!==false;
     $("#auth-body").innerHTML='<button type="button" class="auth-x" aria-label="Close">✕</button><h3>Sign in to sync</h3><p>Save your progress and pick up on any device.</p>'+
       (g?'<div class="auth-actions"><button type="button" class="btn ghost auth-google-btn" id="auth-google"><span class="g-icon">G</span>Continue with Google</button></div><div class="auth-or"><span>or</span></div>':'')+
-      '<input id="auth-email" type="email" placeholder="you@example.com" autocomplete="email"><div class="auth-actions"><button type="button" class="btn primary" id="auth-send">Email me a sign-in link</button></div>'+
+      '<input id="auth-email" type="email" placeholder="you@example.com" autocomplete="email">'+
+      '<input id="auth-password" type="password" placeholder="Password (min 6 characters)" autocomplete="current-password">'+
+      '<div class="auth-actions"><button type="button" class="btn primary" id="auth-signin">Sign in</button><button type="button" class="btn ghost" id="auth-signup">Create account</button></div>'+
+      '<div class="auth-alt"><button type="button" class="auth-linkbtn" id="auth-magic">Email me a one-time link instead</button></div>'+
       '<div class="auth-msg" id="auth-msg"></div>';
   }
   m.classList.add("on");
   m.querySelector(".auth-x").addEventListener("click",closeAuth);
   const so=$("#auth-signout"); if(so)so.addEventListener("click",doSignOut);
   const gg=$("#auth-google"); if(gg)gg.addEventListener("click",doGoogle);
-  const sd=$("#auth-send"); if(sd)sd.addEventListener("click",doMagic);
-  const ei=$("#auth-email"); if(ei){ ei.focus(); ei.addEventListener("keydown",e=>{ if(e.key==="Enter")doMagic(); }); }
+  const si=$("#auth-signin"); if(si)si.addEventListener("click",doPassword);
+  const su=$("#auth-signup"); if(su)su.addEventListener("click",doSignup);
+  const mg=$("#auth-magic"); if(mg)mg.addEventListener("click",doMagic);
+  const ei=$("#auth-email"); if(ei) ei.focus();
+  const pw=$("#auth-password"); if(pw) pw.addEventListener("keydown",e=>{ if(e.key==="Enter")doPassword(); });
 }
 function closeAuth(){ $("#authmodal").classList.remove("on"); }
 function authMsg(t,cls){ const m=$("#auth-msg"); if(m){ m.textContent=t; m.className="auth-msg show "+cls; } }
@@ -17796,6 +17805,21 @@ async function doMagic(){
   }catch(e){ authMsg(e.message||"Could not send the link.","err"); }
 }
 async function doGoogle(){ try{ const {error}=await SB.auth.signInWithOAuth({provider:"google",options:{redirectTo:location.href.split("#")[0]}}); if(error)throw error; }catch(e){ const m=String(e&&e.message||e); authMsg(/not enabled|unsupported provider/i.test(m)?"Google sign-in isn’t enabled on the server yet — use the email link below for now.":(m||"Sign-in failed."),"err"); } }
+async function doPassword(){
+  const email=($("#auth-email").value||"").trim(), pw=$("#auth-password").value||"";
+  if(!email||!pw){ authMsg("Enter your email and password.","err"); return; }
+  authMsg("Signing in…","ok");
+  try{ const {error}=await SB.auth.signInWithPassword({email,password:pw}); if(error)throw error; closeAuth(); }
+  catch(e){ authMsg(/invalid login/i.test(String(e.message))?"Wrong email or password. New here? Use “Create account”.":(e.message||"Sign-in failed."),"err"); }
+}
+async function doSignup(){
+  const email=($("#auth-email").value||"").trim(), pw=$("#auth-password").value||"";
+  if(!email||pw.length<6){ authMsg("Enter an email and a password of at least 6 characters.","err"); return; }
+  authMsg("Creating your account…","ok");
+  try{ const {data,error}=await SB.auth.signUp({email,password:pw}); if(error)throw error;
+    if(data.session){ closeAuth(); } else { authMsg("Account created — check your email to confirm, then sign in.","ok"); }
+  }catch(e){ authMsg(e.message||"Could not create account.","err"); }
+}
 async function doSignOut(){ try{ await SB.auth.signOut(); }catch(e){} USER=null; closeAuth(); updateAuthUI(); route(); }
 function initSupabase(){
   if(!CFG.SUPABASE_URL||!CFG.SUPABASE_ANON_KEY){ updateAuthUI(); return; }
