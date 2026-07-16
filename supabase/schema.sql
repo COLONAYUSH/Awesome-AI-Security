@@ -11,8 +11,12 @@ create table if not exists public.progress (
   email      text,
   state      jsonb not null default '{}'::jsonb,
   summary    jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- idempotent: add created_at to installs made before this column existed
+alter table public.progress add column if not exists created_at timestamptz not null default now();
 
 alter table public.progress enable row level security;
 
@@ -72,6 +76,21 @@ begin
     'avg_pct',    coalesce(round(avg( nullif(summary->>'pct','')::numeric ), 1), 0),
     'avg_quiz',   coalesce(round(avg( nullif(summary->>'quizAvg','')::numeric ), 1), 0),
     'lessons_completed_total', coalesce(sum( nullif(summary->>'lessonsDone','')::int ), 0),
+    'signups', (
+      with weeks as (
+        select generate_series(
+          date_trunc('week', now()) - interval '11 weeks',
+          date_trunc('week', now()),
+          interval '1 week'
+        ) as wk
+      )
+      select coalesce(json_agg(json_build_object(
+        'week',       to_char(w.wk, 'Mon DD'),
+        'new',        (select count(*) from public.progress p where date_trunc('week', p.created_at) = w.wk),
+        'cumulative', (select count(*) from public.progress p where p.created_at < w.wk + interval '1 week')
+      ) order by w.wk), '[]'::json)
+      from weeks w
+    ),
     'users', coalesce(
       json_agg(
         json_build_object(

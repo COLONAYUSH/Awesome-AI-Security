@@ -548,6 +548,14 @@ pre.mermaid{display:flex;justify-content:center;background:var(--surface);border
 #nav-owner .nav-h{color:var(--accent)}
 .admin-note{display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--muted);background:var(--accent-soft);border:1px solid color-mix(in srgb,var(--accent) 30%,var(--border));border-radius:10px;padding:9px 13px;margin-bottom:18px}
 .admin-note b{color:var(--accent);font-weight:700}
+.chartcard-wide{grid-column:1/-1}
+.sig-svg{width:100%;height:auto;display:block;overflow:visible;margin-top:4px}
+.sig-line{fill:none;stroke:var(--accent);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.sig-area{fill:var(--accent-soft);stroke:none}
+.sig-dot{fill:var(--accent)}
+.sig-dot:hover{r:4.5}
+.sig-grid{stroke:var(--border);stroke-width:1}
+.sig-axis{fill:var(--faint);font:10px var(--mono)}
 
 footer.credit{max-width:860px;margin:60px auto 0;padding-top:18px;border-top:1px solid var(--border);font-size:12px;color:var(--faint);line-height:1.6}
 footer.credit a{color:var(--muted)}
@@ -17802,8 +17810,27 @@ function viewH(eye,title,sub){ return '<div class="view-h"><div class="vh-eyebro
 function admStat(v,l){ return '<div class="plan-stat"><div class="ps-v">'+esc(String(v))+'</div><div class="ps-l">'+esc(l)+'</div></div>'; }
 function fmtDate(s){ if(!s)return "—"; try{ return new Date(s).toLocaleString(undefined,{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"}); }catch(e){ return String(s); } }
 function hbar(label,val,max){ const pct=max>0?Math.round(100*(val||0)/max):0; return '<div class="hbar-row"><span class="hbar-label" title="'+esc(label)+'">'+esc(label)+'</span><div class="hbar-track"><div class="hbar-fill" style="width:'+pct+'%" title="'+esc(label)+': '+(val||0)+'"></div></div><span class="hbar-val">'+esc(String(val||0))+'</span></div>'; }
+function signupsChart(signups){
+  signups=signups||[];
+  if(!signups.length||signups.every(s=>(s.cumulative||0)===0))
+    return '<div class="chartcard chartcard-wide"><h3>Learner growth · cumulative sign-ups (last 12 weeks)</h3><div class="chart-empty">No sign-ups yet — this fills in as learners join.</div></div>';
+  const W=680,H=200,padL=32,padR=14,padT=14,padB=26,n=signups.length;
+  const maxC=Math.max(1,...signups.map(s=>s.cumulative||0));
+  const X=i=>padL+(n<=1?(W-padL-padR)/2:i*(W-padL-padR)/(n-1));
+  const Y=v=>padT+(1-v/maxC)*(H-padT-padB);
+  const pts=signups.map((s,i)=>[X(i),Y(s.cumulative||0)]);
+  const line=pts.map((p,i)=>(i?"L":"M")+p[0].toFixed(1)+" "+p[1].toFixed(1)).join(" ");
+  const area=line+" L "+X(n-1).toFixed(1)+" "+(H-padB)+" L "+X(0).toFixed(1)+" "+(H-padB)+" Z";
+  const yt=[...new Set([0,Math.round(maxC/2),maxC])];
+  const grid=yt.map(v=>'<line class="sig-grid" x1="'+padL+'" y1="'+Y(v).toFixed(1)+'" x2="'+(W-padR)+'" y2="'+Y(v).toFixed(1)+'"/><text class="sig-axis" x="'+(padL-6)+'" y="'+(Y(v)+3).toFixed(1)+'" text-anchor="end">'+v+'</text>').join("");
+  const step=Math.max(1,Math.ceil(n/6));
+  const xlab=signups.map((s,i)=>(i%step===0||i===n-1)?'<text class="sig-axis" x="'+X(i).toFixed(1)+'" y="'+(H-8)+'" text-anchor="middle">'+esc(s.week)+'</text>':"").join("");
+  const dots=pts.map((p,i)=>'<circle class="sig-dot" cx="'+p[0].toFixed(1)+'" cy="'+p[1].toFixed(1)+'" r="3"><title>'+esc(signups[i].week)+': '+(signups[i].cumulative||0)+' total ('+(signups[i].new||0)+' new)</title></circle>').join("");
+  return '<div class="chartcard chartcard-wide"><h3>Learner growth · cumulative sign-ups (last 12 weeks)</h3><svg class="sig-svg" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Cumulative sign-ups over the last 12 weeks">'+grid+'<path class="sig-area" d="'+area+'"/><path class="sig-line" d="'+line+'"/>'+dots+xlab+'</svg></div>';
+}
 function buildAdminCharts(d){
   const users=d.users||[];
+  const growth='<div class="chartgrid" style="grid-template-columns:1fr">'+signupsChart(d.signups)+'</div>';
   const act=[["Today",d.active_1d||0],["7 days",d.active_7d||0],["30 days",d.active_30d||0],["All-time",d.total_users||0]];
   const actMax=Math.max(1,...act.map(a=>a[1]));
   const actC='<div class="chartcard"><h3>Active learners</h3>'+act.map(x=>hbar(x[0],x[1],actMax)).join("")+'</div>';
@@ -17815,7 +17842,7 @@ function buildAdminCharts(d){
   const paths={}; users.forEach(u=>{const p=u.active_path||"—"; paths[p]=(paths[p]||0)+1;});
   const pk=Object.keys(paths).sort((x,y)=>paths[y]-paths[x]); const pMax=Math.max(1,...pk.map(k=>paths[k]));
   const pathC='<div class="chartcard"><h3>Active learning path</h3>'+(pk.length?pk.map(k=>hbar(k,paths[k],pMax)).join(""):'<div class="chart-empty">No learners yet.</div>')+'</div>';
-  return '<div class="chartgrid">'+actC+distC+'</div><div class="chartgrid">'+topC+pathC+'</div>';
+  return growth+'<div class="chartgrid">'+actC+distC+'</div><div class="chartgrid">'+topC+pathC+'</div>';
 }
 function exportProgress(){
   const data={_app:"aisec-academy",_v:1,exportedAt:new Date().toISOString(),email:(USER&&USER.email)||null,state:serializeState(),theme:S.theme};
