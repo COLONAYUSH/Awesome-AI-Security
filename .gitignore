@@ -1,0 +1,11 @@
+# config.js holds the Supabase URL + the PUBLIC "anon" key only.
+# The anon key is designed to be exposed in the browser (any deployed site
+# reveals it), and data is protected by row-level security — so it is safe to
+# commit for a git-based Netlify deploy. It is intentionally NOT ignored.
+
+# OS / editor cruft
+.DS_Store
+*.log
+.vercel
+.netlify
+node_modules/
