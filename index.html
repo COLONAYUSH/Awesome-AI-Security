@@ -544,6 +544,10 @@ pre.mermaid{display:flex;justify-content:center;background:var(--surface);border
 .hbar-val{text-align:right;font:600 12px/1 var(--mono);font-variant-numeric:tabular-nums;color:var(--text)}
 .chart-empty{color:var(--faint);font-size:13px}
 #ds-file{display:none}
+#nav-owner{margin-top:12px;padding-top:8px;border-top:1px solid var(--border-strong)}
+#nav-owner .nav-h{color:var(--accent)}
+.admin-note{display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--muted);background:var(--accent-soft);border:1px solid color-mix(in srgb,var(--accent) 30%,var(--border));border-radius:10px;padding:9px 13px;margin-bottom:18px}
+.admin-note b{color:var(--accent);font-weight:700}
 
 footer.credit{max-width:860px;margin:60px auto 0;padding-top:18px;border-top:1px solid var(--border);font-size:12px;color:var(--faint);line-height:1.6}
 footer.credit a{color:var(--muted)}
@@ -17751,10 +17755,10 @@ function updateAuthUI(){
       else { btn.classList.remove("signed"); btn.textContent="Sign in to sync"; }
     }
   }
-  let al=$("#nav-admin");
+  let og=$("#nav-owner");
   if(isOwner()){
-    if(!al){ al=document.createElement("a"); al.className="nav-link"; al.id="nav-admin"; al.setAttribute("data-nav","admin"); al.href="#/admin"; al.innerHTML='<span class="ni">📈</span>Admin · Usage'; const nv=$("#nav"); if(nv) nv.appendChild(al); }
-  } else if(al){ al.remove(); }
+    if(!og){ og=document.createElement("div"); og.id="nav-owner"; og.innerHTML='<div class="nav-h">Owner</div><a class="nav-link" id="nav-admin" data-nav="admin" href="#/admin"><span class="ni">📈</span>Admin · Usage</a>'; const nv=$("#nav"); if(nv){ nv.appendChild(og); refreshNavActive(); } }
+  } else if(og){ og.remove(); }
 }
 function openAuth(){
   const m=$("#authmodal");
@@ -17851,6 +17855,7 @@ async function renderAdmin(){
   try{
     const {data,error}=await SB.rpc("owner_stats"); if(error)throw error; const d=data||{};
     let h=viewH("Admin","Usage Analytics","Aggregate learner activity across everyone who has signed in to this deployment.");
+    h+='<div class="admin-note">🔒&nbsp;<b>Owner area</b> — visible only to you. Learners never see this section or that it exists.</div>';
     h+='<div class="adm-grid">'+admStat(d.total_users||0,"total learners")+admStat(d.active_7d||0,"active · 7 days")+admStat(d.active_1d||0,"active · today")+admStat((d.avg_pct||0)+"%","avg curriculum")+admStat(d.avg_quiz!=null&&d.avg_quiz!==""?d.avg_quiz+"%":"—","avg quiz")+admStat(d.lessons_completed_total||0,"lessons completed")+'</div>';
     h+=buildAdminCharts(d);
     const users=d.users||[];
