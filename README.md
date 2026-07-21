@@ -1,9 +1,15 @@
-# AI Security Academy — self-hosted
+# AI Academy — self-hosted
 
-A complete AI-security learning platform (built on the OWASP AI Exchange): 18 modules /
-109 lessons, quizzes, spaced-repetition flashcards, a 100-question senior interview lab,
-threat/control explorers, a guided "Today" study plan and learning paths — plus optional
-**accounts, cross-device sync, and an owner usage dashboard** via Supabase.
+A complete, senior-level learning platform with **two tracks** you choose from a landing page:
+
+- **AI Security** (built on the OWASP AI Exchange) — 18 modules / 109 lessons, threat/control
+  explorers (matrix + periodic table), and a 100-question interview lab.
+- **AI Engineering** — 16 modules / 100 lessons with **hands-on labs** (build a RAG system,
+  QLoRA fine-tune, a tool-using agent, evals, serve with vLLM…) and a 216-question interview lab.
+
+Both tracks share quizzes, spaced-repetition flashcards, a guided "Today" study plan, learning
+paths, a glossary, and cheat sheets — plus optional **accounts, cross-device sync, and an owner
+usage dashboard** via Supabase. Progress is tracked separately per track.
 
 It's a **static site** (one `index.html` + `config.js`). No build step, no server to run.
 
